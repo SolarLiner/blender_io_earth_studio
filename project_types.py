@@ -1,10 +1,30 @@
 from collections import namedtuple
+from dataclasses import dataclass
+from typing import List
 
-VectorTuple = namedtuple("Vector", ['x', 'y', 'z'])
-CFrameTuple = namedtuple("CameraFrame",
-                         ['position', 'rotation', 'fovVertical'])
-TPointTuple = namedtuple("TrackPoint", ['position', 'name', 'visible'])
-ProjectTuple = namedtuple("Project", [
-    'name', 'width', 'height', 'frameRate', 'numFrames', 'durationSeconds',
-    'cameraFrames', 'trackPoints'
-])
+import mathutils
+
+
+@dataclass
+class CFrame:
+    fov: float
+    matrix: mathutils.Matrix
+
+
+@dataclass
+class TPoint:
+    position: mathutils.Vector
+    name: str
+    visible: bool
+
+
+@dataclass
+class ProjectKlass:
+    name: str
+    width: int
+    height: int
+    frameRate: int
+    numFrames: int
+    durationSeconds: float
+    cameraFrames: List[CFrame]
+    trackPoints: List[TPoint]

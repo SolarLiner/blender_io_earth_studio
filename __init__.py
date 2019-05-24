@@ -15,7 +15,7 @@ import json
 import math
 import mathutils
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import bpy
 import bpy.types
@@ -67,7 +67,7 @@ class OperatorImportGES(Operator, ImportHelper):
         data = self.as_keywords()
         filepath = data.get("filepath")
         export = load_gse_exported_project(filepath)
-        project: project_types.ProjectTuple = export.data
+        project: project_types.ProjectKlass = export.data
         if self.new_scene:
             scn = bpy.data.scenes.new(
                 name=f"{project.name} - Google Earth Studio")
@@ -79,7 +79,7 @@ class OperatorImportGES(Operator, ImportHelper):
         return {'FINISHED'}
 
     def import_project(self, ctx: bpy.types.Context, scn: bpy.types.Scene,
-                       data: project_types.TPointTuple):
+                       data: project_types.TPoint):
         render: bpy.types.RenderSettings = scn.render
         scn.frame_start = 0
         scn.frame_end = data.numFrames
@@ -93,28 +93,23 @@ class OperatorImportGES(Operator, ImportHelper):
             self.import_trackpoint(ctx, scn, tp)
 
     def import_trackpoint(self, ctx: bpy.types.Context, scn: bpy.types.Scene,
-                          trackpoint: project_types.TPointTuple):
+                          trackpoint: project_types.TPoint):
         o: bpy.types.Object = bpy.data.objects.new(trackpoint.name, None)
-        o.location.x = trackpoint.position.x
-        o.location.y = trackpoint.position.y
-        o.location.z = trackpoint.position.z
+        o.location = mathutils.Vector(
+            [a * b for a, b in zip(trackpoint.position, (1, 1, -1))])
         o.show_name = True
         scn.collection.objects.link(o)
 
     def import_camera(self, scn: bpy.types.Scene,
-                      camdata: List[project_types.CFrameTuple]):
+                      camdata: List[project_types.CFrame]):
         cam: bpy.types.Camera = bpy.data.cameras.new("GES Camera")
         cam_o: bpy.types.Object = bpy.data.objects.new("GES Camera", cam)
 
-        for i, frame in enumerate(camdata):
+        for i, frame in enumerate(
+                camdata):  # type: Tuple[int, project_types.CFrame]
             frame_idx = i + scn.frame_start
-            eul = mathutils.Euler(map(math.radians, frame.rotation), 'XYZ')
-            cam.angle = math.radians(frame.fovVertical)
-
-            mat_loc: mathutils.Matrix = mathutils.Matrix.Translation(
-                frame.position)
-            mat_rot: mathutils.Matrix = eul.to_matrix()
-            cam_o.matrix_world = mat_loc @ mat_rot.to_4x4()
+            cam.angle = frame.fov
+            cam_o.matrix_world = frame.matrix
 
             cam_o.keyframe_insert(
                 data_path="location", index=-1, frame=frame_idx)
