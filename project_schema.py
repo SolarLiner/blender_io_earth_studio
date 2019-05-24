@@ -3,14 +3,7 @@ from typing import List
 
 from marshmallow import Schema, fields, post_load
 
-VectorTuple = namedtuple("Vector", ['x', 'y', 'z'])
-CFrameTuple = namedtuple("CameraFrame",
-                         ['position', 'rotation', 'fovVertical'])
-TPointTuple = namedtuple("TrackPoint", ['position', 'name', 'visible'])
-ProjectTuple = namedtuple("Project", [
-    'name', 'width', 'height', 'frameRate', 'numFrames', 'durationSeconds',
-    'cameraFrames', 'trackPoints'
-])
+from .project_types import VectorTuple, CFrameTuple, ProjectTuple, TPointTuple
 
 
 class Vector(Schema):

@@ -12,13 +12,18 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import json
+import math
+import mathutils
 from pathlib import Path
+from typing import List
 
 import bpy
 import bpy.types
 from bpy.types import Operator
-from bpy.props import StringProperty
+from bpy.props import StringProperty, BoolProperty
 from bpy_extras.io_utils import ImportHelper
+
+from . import project_types
 
 
 def load_gse_exported_project(path: str):
@@ -53,23 +58,74 @@ class OperatorImportGES(Operator, ImportHelper):
         description="JSON export to load into Blender",
         subtype='FILE_PATH')
     filter_glob: StringProperty(default="*.json;*.txt", options={'HIDDEN'})
+    new_scene: BoolProperty(
+        name="Create new scene",
+        default=True,
+        description="Create a new scene when importing data")
 
     def execute(self, ctx: bpy.types.Context):
         data = self.as_keywords()
         filepath = data.get("filepath")
         export = load_gse_exported_project(filepath)
-        self.import_project(ctx, export.data)
+        project: project_types.ProjectTuple = export.data
+        if self.new_scene:
+            scn = bpy.data.scenes.new(
+                name=f"{project.name} - Google Earth Studio")
+        else:
+            scn = bpy.context.window.scene
+        self.import_project(ctx, scn, project)
+        if self.new_scene:
+            bpy.context.window.scene = scn
         return {'FINISHED'}
 
-    def import_project(self, ctx: bpy.types.Context,
-                       data: 'project_schema.ProjectTuple'):
-        scn: bpy.types.Scene = ctx.scene
+    def import_project(self, ctx: bpy.types.Context, scn: bpy.types.Scene,
+                       data: project_types.TPointTuple):
         render: bpy.types.RenderSettings = scn.render
         scn.frame_start = 0
         scn.frame_end = data.numFrames
         render.fps = data.frameRate
         render.resolution_x = data.width
         render.resolution_y = data.height
+
+        self.import_camera(scn, data.cameraFrames)
+
+        for tp in data.trackPoints:
+            self.import_trackpoint(ctx, scn, tp)
+
+    def import_trackpoint(self, ctx: bpy.types.Context, scn: bpy.types.Scene,
+                          trackpoint: project_types.TPointTuple):
+        o: bpy.types.Object = bpy.data.objects.new(trackpoint.name, None)
+        o.location.x = trackpoint.position.x
+        o.location.y = trackpoint.position.y
+        o.location.z = trackpoint.position.z
+        o.show_name = True
+        scn.collection.objects.link(o)
+
+    def import_camera(self, scn: bpy.types.Scene,
+                      camdata: List[project_types.CFrameTuple]):
+        cam: bpy.types.Camera = bpy.data.cameras.new("GES Camera")
+        cam_o: bpy.types.Object = bpy.data.objects.new("GES Camera", cam)
+
+        for i, frame in enumerate(camdata):
+            frame_idx = i + scn.frame_start
+            eul = mathutils.Euler(map(math.radians, frame.rotation), 'XYZ')
+            cam.angle = math.radians(frame.fovVertical)
+
+            mat_loc: mathutils.Matrix = mathutils.Matrix.Translation(
+                frame.position)
+            mat_rot: mathutils.Matrix = eul.to_matrix()
+            cam_o.matrix_world = mat_loc @ mat_rot.to_4x4()
+
+            cam_o.keyframe_insert(
+                data_path="location", index=-1, frame=frame_idx)
+            cam_o.keyframe_insert(
+                data_path="rotation_euler", index=-1, frame=frame_idx)
+            cam.keyframe_insert(data_path="lens", frame=frame_idx)
+
+            obj = bpy.data.objects.new(f"frame {i}", None)
+            obj.matrix_world = cam_o.matrix_world
+            scn.collection.objects.link(obj)
+        scn.collection.objects.link(cam_o)
 
 
 def menu_func_import(self, context: bpy.types.Context):
