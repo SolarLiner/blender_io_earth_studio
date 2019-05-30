@@ -26,8 +26,8 @@ class Euler(Schema):
 
     @post_load
     def make_object(self, data):
-        rot = -data['x'], -data['y'], -data['z']
-        return mathutils.Euler(map(math.radians, rot), 'ZXY')
+        rot = data['x'], data['y'], data['z']
+        return mathutils.Euler(map(math.radians, rot), 'XYZ')
 
 
 class CameraFrame(Schema):
