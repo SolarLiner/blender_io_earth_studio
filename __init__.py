@@ -23,7 +23,7 @@ from bpy.types import Operator
 from bpy.props import StringProperty, BoolProperty
 from bpy_extras.io_utils import ImportHelper
 
-from . import project_types
+from . import project_types, utils
 
 
 def load_gse_exported_project(path: str):
@@ -72,7 +72,7 @@ class OperatorImportGES(Operator, ImportHelper):
             bpy.context.window.scene = scn
         return {"FINISHED"}
 
-    def import_project(self, ctx: bpy.types.Context, scn: bpy.types.Scene, data: project_types.TPoint):
+    def import_project(self, ctx: bpy.types.Context, scn: bpy.types.Scene, data: project_types.ProjectKlass):
         render: bpy.types.RenderSettings = scn.render
         scn.frame_start = 0
         scn.frame_end = data.numFrames
@@ -99,6 +99,7 @@ class OperatorImportGES(Operator, ImportHelper):
             frame_idx = i + scn.frame_start
             cam.angle = frame.fov
             cam_o.matrix_world = frame.matrix
+            utils.correct_ges_rotation(cam_o.rotation_euler)
 
             cam_o.keyframe_insert(data_path="location", index=-1, frame=frame_idx)
             cam_o.keyframe_insert(data_path="rotation_euler", index=-1, frame=frame_idx)
@@ -106,6 +107,7 @@ class OperatorImportGES(Operator, ImportHelper):
 
             obj: bpy.types.Object = bpy.data.objects.new(f"frame {i}", None)
             obj.matrix_world = cam_o.matrix_world
+            utils.correct_ges_rotation(obj.rotation_euler)
             obj.empty_display_type = "ARROWS"
             scn.collection.objects.link(obj)
         scn.collection.objects.link(cam_o)
