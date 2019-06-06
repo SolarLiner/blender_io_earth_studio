@@ -1,7 +1,5 @@
-from collections import namedtuple
 import math
 import mathutils
-from typing import List
 
 from marshmallow import Schema, fields, post_load
 
@@ -15,7 +13,7 @@ class Vector(Schema):
 
     @post_load
     def make_object(self, data):
-        x, y, z = data['x'], data['y'], data['z']
+        x, y, z = data["x"], data["y"], data["z"]
         return mathutils.Vector((x, y, z))
 
 
@@ -26,8 +24,8 @@ class Euler(Schema):
 
     @post_load
     def make_object(self, data):
-        rot = data['x'], data['y'], data['z']
-        return mathutils.Euler(map(math.radians, rot), 'XYZ')
+        rot = data["x"], data["y"], data["z"]
+        return mathutils.Euler(map(math.radians, rot), "XYZ")
 
 
 class CameraFrame(Schema):
@@ -37,13 +35,11 @@ class CameraFrame(Schema):
 
     @post_load
     def make_object(self, data):
-        eul: mathutils.Euler = data['rotation']
+        eul: mathutils.Euler = data["rotation"]
         corr = mathutils.Quaternion((0, 0, -1), math.radians(90))
         mat_rot: mathutils.Matrix = eul.to_matrix()  # @ corr.to_matrix()
-        mat_loc: mathutils.Matrix = mathutils.Matrix.Translation(
-            data['position'])
-        return CFrame(
-            fov=data['fovVertical'], matrix=mat_loc @ mat_rot.to_4x4())
+        mat_loc: mathutils.Matrix = mathutils.Matrix.Translation(data["position"])
+        return CFrame(fov=data["fovVertical"], matrix=mat_loc @ mat_rot.to_4x4())
 
 
 class TrackPoint(Schema):

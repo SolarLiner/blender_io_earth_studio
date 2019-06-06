@@ -28,7 +28,8 @@ from . import project_types
 
 def load_gse_exported_project(path: str):
     from .project_schema import Project
-    with open(path, 'r') as f:
+
+    with open(path, "r") as f:
         data = json.load(f)
     project = Project()
     result = project.load(data)
@@ -44,24 +45,18 @@ bl_info = {
     "version": (0, 0, 1),
     "location": "Import",
     "warning": "This import addon is a WIP.",
-    "category": "Import-Export"
+    "category": "Import-Export",
 }
 
 
 class OperatorImportGES(Operator, ImportHelper):
     bl_idname = "import_scene.ges"
     bl_label = "Import Google Earth Studio scene"
-    bl_options = {'PRESET', 'UNDO'}
+    bl_options = {"PRESET", "UNDO"}
 
-    filename: StringProperty(
-        name="File name",
-        description="JSON export to load into Blender",
-        subtype='FILE_PATH')
-    filter_glob: StringProperty(default="*.json;*.txt", options={'HIDDEN'})
-    new_scene: BoolProperty(
-        name="Create new scene",
-        default=True,
-        description="Create a new scene when importing data")
+    filename: StringProperty(name="File name", description="JSON export to load into Blender", subtype="FILE_PATH")
+    filter_glob: StringProperty(default="*.json;*.txt", options={"HIDDEN"})
+    new_scene: BoolProperty(name="Create new scene", default=True, description="Create a new scene when importing data")
 
     def execute(self, ctx: bpy.types.Context):
         data = self.as_keywords()
@@ -69,17 +64,15 @@ class OperatorImportGES(Operator, ImportHelper):
         export = load_gse_exported_project(filepath)
         project: project_types.ProjectKlass = export.data
         if self.new_scene:
-            scn = bpy.data.scenes.new(
-                name=f"{project.name} - Google Earth Studio")
+            scn = bpy.data.scenes.new(name=f"{project.name} - Google Earth Studio")
         else:
             scn = bpy.context.window.scene
         self.import_project(ctx, scn, project)
         if self.new_scene:
             bpy.context.window.scene = scn
-        return {'FINISHED'}
+        return {"FINISHED"}
 
-    def import_project(self, ctx: bpy.types.Context, scn: bpy.types.Scene,
-                       data: project_types.TPoint):
+    def import_project(self, ctx: bpy.types.Context, scn: bpy.types.Scene, data: project_types.TPoint):
         render: bpy.types.RenderSettings = scn.render
         scn.frame_start = 0
         scn.frame_end = data.numFrames
@@ -92,40 +85,34 @@ class OperatorImportGES(Operator, ImportHelper):
         for tp in data.trackPoints:
             self.import_trackpoint(ctx, scn, tp)
 
-    def import_trackpoint(self, ctx: bpy.types.Context, scn: bpy.types.Scene,
-                          trackpoint: project_types.TPoint):
+    def import_trackpoint(self, ctx: bpy.types.Context, scn: bpy.types.Scene, trackpoint: project_types.TPoint):
         o: bpy.types.Object = bpy.data.objects.new(trackpoint.name, None)
-        o.location = mathutils.Vector(
-            [a * b for a, b in zip(trackpoint.position, (1, 1, -1))])
+        o.location = mathutils.Vector([a * b for a, b in zip(trackpoint.position, (1, 1, -1))])
         o.show_name = True
         scn.collection.objects.link(o)
 
-    def import_camera(self, scn: bpy.types.Scene,
-                      camdata: List[project_types.CFrame]):
+    def import_camera(self, scn: bpy.types.Scene, camdata: List[project_types.CFrame]):
         cam: bpy.types.Camera = bpy.data.cameras.new("GES Camera")
         cam_o: bpy.types.Object = bpy.data.objects.new("GES Camera", cam)
 
-        for i, frame in enumerate(
-                camdata):  # type: Tuple[int, project_types.CFrame]
+        for i, frame in enumerate(camdata):  # type: Tuple[int, project_types.CFrame]
             frame_idx = i + scn.frame_start
             cam.angle = frame.fov
             cam_o.matrix_world = frame.matrix
 
-            cam_o.keyframe_insert(
-                data_path="location", index=-1, frame=frame_idx)
-            cam_o.keyframe_insert(
-                data_path="rotation_euler", index=-1, frame=frame_idx)
+            cam_o.keyframe_insert(data_path="location", index=-1, frame=frame_idx)
+            cam_o.keyframe_insert(data_path="rotation_euler", index=-1, frame=frame_idx)
             cam.keyframe_insert(data_path="lens", frame=frame_idx)
 
-            obj = bpy.data.objects.new(f"frame {i}", None)
+            obj: bpy.types.Object = bpy.data.objects.new(f"frame {i}", None)
             obj.matrix_world = cam_o.matrix_world
+            obj.empty_display_type = "ARROWS"
             scn.collection.objects.link(obj)
         scn.collection.objects.link(cam_o)
 
 
 def menu_func_import(self, context: bpy.types.Context):
-    self.layout.operator(
-        OperatorImportGES.bl_idname, text="Google Earth Studio (.json)")
+    self.layout.operator(OperatorImportGES.bl_idname, text="Google Earth Studio (.json)")
 
 
 def register():
@@ -134,16 +121,15 @@ def register():
         import os
         import subprocess
         import sys
+
         blender_exe = Path(sys.executable).resolve().absolute()
         pip_exe = Path(blender_exe / "../2.80/python/bin/pip").resolve()
         requirements_file = Path(__file__) / "../requirements.txt"
-        subprocess.call([
-            str(pip_exe.resolve()), "install", "-r",
-            str(requirements_file.resolve())
-        ])
+        subprocess.call([str(pip_exe.resolve()), "install", "-r", str(requirements_file.resolve())])
     except ImportError:
         try:
             import ensurepip
+
             ensurepip.bootstrap(upgrade=True, default_pip=True)
             return register()
         except ImportError:
